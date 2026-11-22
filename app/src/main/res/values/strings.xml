@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Hilal Checker</string>
+    <string name="cd_twilight_banner">Ilustrasi ufuk senja saat rukyatul hilal</string>
+    <string name="cd_compass_dial">Kompas arah rukyatul hilal dan kiblat</string>
+    <string name="cd_horizon_canvas">Simulasi visual ufuk posisi matahari dan hilal saat ghurub</string>
+    <string name="tab_hisab">Hisab</string>
+    <string name="tab_ufuk">Simulasi</string>
+    <string name="tab_kompas">Kompas</string>
+    <string name="tab_istiwak">Istiwak</string>
+</resources>

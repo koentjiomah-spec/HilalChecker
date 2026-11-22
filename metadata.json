@@ -1,0 +1,6 @@
+{
+  "name": "Hilal Checker",
+  "description": "Aplikasi hisab & rukyatul hilal, simulasi ufuk, kompas azimuth hilal & kiblat, serta waktu istiwak berbasis astronomi Islam.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
