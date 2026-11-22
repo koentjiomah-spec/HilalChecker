@@ -11,4 +11,5 @@
     <string name="cd_export_report">Ekspor laporan prediksi hilal dan waktu istiwak</string>
     <string name="widget_hijri_description">Kalender Hijriah dengan tanggal penting bulan ini dan jadwal sholat mendatang</string>
     <string name="cd_refresh_widget">Perbarui data kalender Hijriah dan jadwal sholat</string>
+    <string name="cd_account_sync">Akun Google dan status sinkronisasi Cloud</string>
 </resources>

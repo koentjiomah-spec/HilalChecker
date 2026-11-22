@@ -65,6 +65,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.data.firebase.CloudObservationsUiState
 import com.example.domain.falak.FalakCatalog
 import com.example.domain.falak.FalakEphemerisEngine
 import com.example.domain.falak.HilalResult
@@ -75,6 +76,7 @@ import com.example.ui.components.FalakMetricTile
 import com.example.ui.components.LunarPhaseVisualizationCard
 import com.example.ui.components.MabimsMathematicalModelCard
 import com.example.ui.components.MarkazLocationBar
+import com.example.ui.components.RukyatObservationsCard
 import com.example.ui.components.VerdictBadge
 import com.example.ui.theme.JetBrainsMonoFamily
 import java.util.Locale
@@ -82,6 +84,7 @@ import java.util.Locale
 @Composable
 fun HisabScreen(
     state: HilalUiState,
+    observationsState: CloudObservationsUiState = CloudObservationsUiState.Loading,
     onSelectMonth: (Int) -> Unit,
     onShiftYear: (Int) -> Unit,
     onSelectCriteria: (RukyatCriteria) -> Unit,
@@ -89,6 +92,9 @@ fun HisabScreen(
     onOpenSimulation: () -> Unit,
     onLunarDayOffsetChange: (Int) -> Unit = {},
     onExportReport: () -> Unit = {},
+    onSaveObservation: (hilalSighted: Boolean, notes: String) -> Unit = { _, _ -> },
+    onUpdateObservation: (observationId: String, hilalSighted: Boolean, notes: String) -> Unit = { _, _, _ -> },
+    onDeleteObservation: (observationId: String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val result = state.hilalResult
@@ -170,6 +176,17 @@ fun HisabScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Ekspor Laporan Prediksi Hilal & Istiwak (PDF / Teks)")
                 }
+            }
+
+            item {
+                RukyatObservationsCard(
+                    currentHilal = result,
+                    observationsState = observationsState,
+                    isSavingObservation = state.isSavingObservation,
+                    onSaveObservation = onSaveObservation,
+                    onUpdateObservation = onUpdateObservation,
+                    onDeleteObservation = onDeleteObservation
+                )
             }
         }
     }

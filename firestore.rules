@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidCriteria(value) {
+      return value in ['MABIMS_BARU', 'WUJUDUL_HILAL', 'MABIMS_LAMA', 'ODEH_GLOBAL'];
+    }
+
+    function isValidVisibilityStatus(value) {
+      return value in ['MEMENUHI', 'MARGINAL', 'TIDAK_MEMENUHI'];
+    }
+
+    function isValidUserFalakProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             data.preferredMarkazId is string && data.preferredMarkazId.size() >= 1 && data.preferredMarkazId.size() <= 64 &&
+             data.preferredMarkazName is string && data.preferredMarkazName.size() >= 1 && data.preferredMarkazName.size() <= 120 &&
+             data.preferredCriteria is string && isValidCriteria(data.preferredCriteria) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRukyatObservation(data) {
+      return data.userId is string && data.userId == request.auth.uid && data.userId.size() <= 128 &&
+             data.hijriYear is int && data.hijriYear >= 1400 && data.hijriYear <= 1500 &&
+             data.hijriMonth is int && data.hijriMonth >= 1 && data.hijriMonth <= 12 &&
+             data.hijriMonthName is string && data.hijriMonthName.size() >= 1 && data.hijriMonthName.size() <= 40 &&
+             data.observationDateLabel is string && data.observationDateLabel.size() >= 1 && data.observationDateLabel.size() <= 80 &&
+             data.markazName is string && data.markazName.size() >= 1 && data.markazName.size() <= 120 &&
+             data.latitude is number && data.latitude >= -90 && data.latitude <= 90 &&
+             data.longitude is number && data.longitude >= -180 && data.longitude <= 180 &&
+             data.moonAltitudeMariDeg is number && data.moonAltitudeMariDeg >= -90 && data.moonAltitudeMariDeg <= 90 &&
+             data.elongationTopoDeg is number && data.elongationTopoDeg >= 0 && data.elongationTopoDeg <= 180 &&
+             data.criteriaCode is string && data.criteriaCode.size() >= 1 && data.criteriaCode.size() <= 40 &&
+             data.verdictSummary is string && data.verdictSummary.size() >= 1 && data.verdictSummary.size() <= 120 &&
+             data.visibilityStatus is string && isValidVisibilityStatus(data.visibilityStatus) &&
+             data.hilalSighted is bool &&
+             data.notes is string && data.notes.size() <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'preferredMarkazId',
+                         'preferredMarkazName', 'preferredCriteria', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'email', 'preferredMarkazId',
+                         'preferredMarkazName', 'preferredCriteria', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserFalakProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserFalakProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'email', 'preferredMarkazId',
+                         'preferredMarkazName', 'preferredCriteria', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      match /observations/{observationId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(observationId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(observationId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'hijriYear', 'hijriMonth', 'hijriMonthName',
+                           'observationDateLabel', 'markazName', 'latitude', 'longitude',
+                           'moonAltitudeMariDeg', 'elongationTopoDeg', 'criteriaCode',
+                           'verdictSummary', 'visibilityStatus', 'hilalSighted', 'notes',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'hijriYear', 'hijriMonth', 'hijriMonthName',
+                           'observationDateLabel', 'markazName', 'latitude', 'longitude',
+                           'moonAltitudeMariDeg', 'elongationTopoDeg', 'criteriaCode',
+                           'verdictSummary', 'visibilityStatus', 'hilalSighted', 'notes',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidRukyatObservation(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(observationId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidRukyatObservation(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'hilalSighted', 'notes', 'verdictSummary', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(observationId) && request.auth.uid == userId;
+      }
+    }
+  }
+}

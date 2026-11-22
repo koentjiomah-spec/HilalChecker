@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "UserFalakProfile": {
+      "title": "UserFalakProfile",
+      "description": "Authenticated user's synced markaz and rukyat criteria preferences.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the profile owner."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name from Google Sign-In."
+        },
+        "email": {
+          "type": "string",
+          "description": "Optional user email address (private to owner)."
+        },
+        "preferredMarkazId": {
+          "type": "string",
+          "description": "Selected markaz identifier."
+        },
+        "preferredMarkazName": {
+          "type": "string",
+          "description": "Human-readable name of the active markaz."
+        },
+        "preferredCriteria": {
+          "type": "string",
+          "enum": ["MABIMS_BARU", "WUJUDUL_HILAL", "MABIMS_LAMA", "ODEH_GLOBAL"],
+          "description": "Preferred rukyat visibility criteria."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "preferredMarkazId",
+        "preferredMarkazName",
+        "preferredCriteria",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RukyatObservation": {
+      "title": "RukyatObservation",
+      "description": "Saved Hilal prediction and field rukyat sighting log entry owned by a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the observation owner."
+        },
+        "hijriYear": {
+          "type": "integer",
+          "description": "Hijri year of the observation."
+        },
+        "hijriMonth": {
+          "type": "integer",
+          "description": "Hijri month number (1..12)."
+        },
+        "hijriMonthName": {
+          "type": "string",
+          "description": "Hijri month display name."
+        },
+        "observationDateLabel": {
+          "type": "string",
+          "description": "Formatted Gregorian observation date."
+        },
+        "markazName": {
+          "type": "string",
+          "description": "Observation markaz name."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Observer latitude in degrees."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Observer longitude in degrees."
+        },
+        "moonAltitudeMariDeg": {
+          "type": "number",
+          "description": "Apparent lunar altitude (Tinggi Mar'i) at sunset in degrees."
+        },
+        "elongationTopoDeg": {
+          "type": "number",
+          "description": "Topocentric Moon-Sun elongation at sunset in degrees."
+        },
+        "criteriaCode": {
+          "type": "string",
+          "description": "Evaluated criteria short code."
+        },
+        "verdictSummary": {
+          "type": "string",
+          "description": "Criteria verdict summary label."
+        },
+        "visibilityStatus": {
+          "type": "string",
+          "enum": ["MEMENUHI", "MARGINAL", "TIDAK_MEMENUHI"],
+          "description": "Criteria evaluation status."
+        },
+        "hilalSighted": {
+          "type": "boolean",
+          "description": "Whether the crescent was visually sighted in field observation."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Field observation notes (sky condition, optical aid, witnesses)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "hijriYear",
+        "hijriMonth",
+        "hijriMonthName",
+        "observationDateLabel",
+        "markazName",
+        "latitude",
+        "longitude",
+        "moonAltitudeMariDeg",
+        "elongationTopoDeg",
+        "criteriaCode",
+        "verdictSummary",
+        "visibilityStatus",
+        "hilalSighted",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserFalakProfile"
+      },
+      "description": "Private user profile and synced Markaz/Rukyat preferences."
+    },
+    "/users/{userId}/observations/{observationId}": {
+      "schema": {
+        "$ref": "#/entities/RukyatObservation"
+      },
+      "description": "Per-user saved Hilal predictions and field Rukyat observation logs."
+    }
+  }
+}

@@ -1,12 +1,15 @@
 package com.example.ui
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import android.content.Context
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.CompassReading
 import com.example.data.CompassSensorManager
 import com.example.data.FalakPreferencesRepository
 import com.example.data.LocationHelper
+import com.example.data.firebase.CloudObservationsUiState
+import com.example.data.firebase.FalakCloudRepository
+import com.example.data.firebase.RukyatObservation
 import com.example.domain.falak.FalakCatalog
 import com.example.domain.falak.FalakEphemerisEngine
 import com.example.domain.falak.HijriCalendarEngine
@@ -22,11 +25,17 @@ import com.example.domain.falak.RukyatCriteria
 import com.example.domain.falak.TrueNoonIstiwakResult
 import com.example.domain.falak.WaktuIstiwakCalculator
 import com.example.widget.HijriCalendarAppWidgetProvider
+import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,13 +73,21 @@ data class HilalUiState(
     val gpsStatusMessage: String? = null,
     val isMarkazSheetOpen: Boolean = false,
     val isExportSheetOpen: Boolean = false,
-    val exportScope: ReportScope = ReportScope.COMPLETE
+    val exportScope: ReportScope = ReportScope.COMPLETE,
+    val isSavingObservation: Boolean = false
 )
 
-class HilalViewModel(application: Application) : AndroidViewModel(application) {
+class HilalViewModel(
+    private val appContext: Context,
+    private val prefsRepo: FalakPreferencesRepository,
+    private val compassManager: CompassSensorManager,
+    private val cloudRepo: FalakCloudRepository,
+    private val currentUserId: String,
+    private val currentUserDisplayName: String,
+    private val currentUserEmail: String?
+) : ViewModel() {
 
-    private val prefsRepo = FalakPreferencesRepository(application.applicationContext)
-    private val compassManager = CompassSensorManager(application.applicationContext)
+    private var lastSyncedProfileKey: Triple<String, String, RukyatCriteria>? = null
 
     private val _uiState = MutableStateFlow(
         run {
@@ -84,6 +101,27 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
         }
     )
     val uiState: StateFlow<HilalUiState> = _uiState.asStateFlow()
+
+    val observationsUiState: StateFlow<CloudObservationsUiState> =
+        cloudRepo.observeObservations(currentUserId)
+            .map<List<RukyatObservation>, CloudObservationsUiState> { items ->
+                CloudObservationsUiState.Success(items)
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                val message = firestoreError?.localizedMessage
+                    ?: error.localizedMessage
+                    ?: "Gagal memuat log rukyat dari Cloud Firestore."
+                emit(CloudObservationsUiState.Error(message))
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000L),
+                initialValue = CloudObservationsUiState.Loading
+            )
 
     init {
         viewModelScope.launch {
@@ -106,7 +144,20 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
                 recomputeTrueNoon()
                 recomputeHijriCalendar()
                 recomputeLunarPhase()
-                runCatching { HijriCalendarAppWidgetProvider.updateAllWidgets(getApplication()) }
+                runCatching { HijriCalendarAppWidgetProvider.updateAllWidgets(appContext) }
+
+                val profileKey = Triple(prefs.markaz.id, prefs.markaz.name, prefs.selectedCriteria)
+                if (profileKey != lastSyncedProfileKey) {
+                    lastSyncedProfileKey = profileKey
+                    launch {
+                        cloudRepo.syncUserProfile(
+                            displayName = currentUserDisplayName,
+                            email = currentUserEmail,
+                            markaz = prefs.markaz,
+                            criteria = prefs.selectedCriteria
+                        )
+                    }
+                }
             }
         }
 
@@ -304,7 +355,7 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.update { it.copy(isFetchingGps = true, gpsStatusMessage = "Mengambil koordinat GPS...") }
             val gpsMarkaz = withContext(Dispatchers.IO) {
-                LocationHelper.fetchCurrentMarkaz(getApplication())
+                LocationHelper.fetchCurrentMarkaz(appContext)
             }
             if (gpsMarkaz != null) {
                 prefsRepo.saveCustomMarkaz(
@@ -334,6 +385,52 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setGpsStatusMessage(msg: String?) {
         _uiState.update { it.copy(gpsStatusMessage = msg) }
+    }
+
+    fun saveObservation(
+        hilalSighted: Boolean,
+        notes: String,
+        onResult: (Result<Unit>) -> Unit
+    ) {
+        val hilal = _uiState.value.hilalResult ?: return
+        val criteria = _uiState.value.selectedCriteria
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingObservation = true) }
+            val res = cloudRepo.saveRukyatObservation(
+                hilal = hilal,
+                criteria = criteria,
+                hilalSighted = hilalSighted,
+                notes = notes
+            )
+            _uiState.update { it.copy(isSavingObservation = false) }
+            onResult(res)
+        }
+    }
+
+    fun updateObservation(
+        observationId: String,
+        hilalSighted: Boolean,
+        notes: String,
+        onResult: (Result<Unit>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val res = cloudRepo.updateRukyatObservation(
+                observationId = observationId,
+                hilalSighted = hilalSighted,
+                notes = notes
+            )
+            onResult(res)
+        }
+    }
+
+    fun deleteObservation(
+        observationId: String,
+        onResult: (Result<Unit>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val res = cloudRepo.deleteRukyatObservation(observationId)
+            onResult(res)
+        }
     }
 
     fun setHorizonOffset(minutes: Float) {
