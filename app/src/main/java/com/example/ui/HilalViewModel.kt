@@ -9,11 +9,19 @@ import com.example.data.FalakPreferencesRepository
 import com.example.data.LocationHelper
 import com.example.domain.falak.FalakCatalog
 import com.example.domain.falak.FalakEphemerisEngine
+import com.example.domain.falak.HijriCalendarEngine
+import com.example.domain.falak.HijriMonthCalendar
 import com.example.domain.falak.HilalResult
 import com.example.domain.falak.IstiwakAndPrayerResult
 import com.example.domain.falak.LunarPhaseData
+import com.example.domain.falak.MabimsHilalModel
+import com.example.domain.falak.MabimsPrediction
 import com.example.domain.falak.MarkazLocation
+import com.example.domain.falak.ReportScope
 import com.example.domain.falak.RukyatCriteria
+import com.example.domain.falak.TrueNoonIstiwakResult
+import com.example.domain.falak.WaktuIstiwakCalculator
+import com.example.widget.HijriCalendarAppWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +44,13 @@ data class HilalUiState(
     val selectedCriteria: RukyatCriteria = RukyatCriteria.MABIMS_BARU,
     val isDarkTheme: Boolean = true,
     val hilalResult: HilalResult? = null,
+    val mabimsPrediction: MabimsPrediction? = null,
     val istiwakResult: IstiwakAndPrayerResult? = null,
+    val trueNoonResult: TrueNoonIstiwakResult? = null,
+    val istiwakDayOffset: Int = 0,
+    val calendarHijriYear: Int = 1448,
+    val calendarHijriMonth: Int = 6,
+    val hijriMonthCalendar: HijriMonthCalendar? = null,
     val lunarPhaseData: LunarPhaseData? = null,
     val lunarDayOffset: Int = 0,
     val compassReading: CompassReading = CompassReading(),
@@ -48,7 +62,9 @@ data class HilalUiState(
     val isPlayingHorizonSimulation: Boolean = false,
     val isFetchingGps: Boolean = false,
     val gpsStatusMessage: String? = null,
-    val isMarkazSheetOpen: Boolean = false
+    val isMarkazSheetOpen: Boolean = false,
+    val isExportSheetOpen: Boolean = false,
+    val exportScope: ReportScope = ReportScope.COMPLETE
 )
 
 class HilalViewModel(application: Application) : AndroidViewModel(application) {
@@ -61,7 +77,9 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
             val (hYear, hMonth) = FalakEphemerisEngine.currentEstimatedHijriYearMonth(System.currentTimeMillis())
             HilalUiState(
                 selectedHijriYear = hYear,
-                selectedHijriMonth = hMonth
+                selectedHijriMonth = hMonth,
+                calendarHijriYear = hYear,
+                calendarHijriMonth = hMonth
             )
         }
     )
@@ -85,7 +103,10 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 recomputeHilal()
                 recomputeIstiwak(System.currentTimeMillis())
+                recomputeTrueNoon()
+                recomputeHijriCalendar()
                 recomputeLunarPhase()
+                runCatching { HijriCalendarAppWidgetProvider.updateAllWidgets(getApplication()) }
             }
         }
 
@@ -123,14 +144,20 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
     private fun recomputeHilal() {
         val state = _uiState.value
         viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
-                FalakEphemerisEngine.calculateHilalForHijriMonth(
+            val (result, mabims) = withContext(Dispatchers.Default) {
+                val r = FalakEphemerisEngine.calculateHilalForHijriMonth(
                     hijriYear = state.selectedHijriYear,
                     hijriMonth = state.selectedHijriMonth,
                     markaz = state.markaz
                 )
+                val m = MabimsHilalModel.predictForHijriMonth(
+                    hijriYear = state.selectedHijriYear,
+                    hijriMonth = state.selectedHijriMonth,
+                    markaz = state.markaz
+                )
+                r to m
             }
-            _uiState.update { it.copy(hilalResult = result) }
+            _uiState.update { it.copy(hilalResult = result, mabimsPrediction = mabims) }
         }
     }
 
@@ -138,6 +165,59 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
         val markaz = _uiState.value.markaz
         val result = FalakEphemerisEngine.calculateIstiwakAndPrayerTimes(nowMillis, markaz)
         _uiState.update { it.copy(istiwakResult = result) }
+    }
+
+    private fun recomputeTrueNoon() {
+        val state = _uiState.value
+        val result = WaktuIstiwakCalculator.calculateTrueNoonForDayOffset(
+            baseUtcMillis = System.currentTimeMillis(),
+            dayOffset = state.istiwakDayOffset,
+            markaz = state.markaz
+        )
+        _uiState.update { it.copy(trueNoonResult = result) }
+    }
+
+    fun shiftIstiwakDay(deltaDays: Int) {
+        _uiState.update {
+            it.copy(istiwakDayOffset = (it.istiwakDayOffset + deltaDays).coerceIn(-180, 180))
+        }
+        recomputeTrueNoon()
+    }
+
+    fun resetIstiwakDayToToday() {
+        _uiState.update { it.copy(istiwakDayOffset = 0) }
+        recomputeTrueNoon()
+    }
+
+    private fun recomputeHijriCalendar() {
+        val state = _uiState.value
+        viewModelScope.launch {
+            val calendar = withContext(Dispatchers.Default) {
+                HijriCalendarEngine.buildMonthCalendar(
+                    hijriYear = state.calendarHijriYear,
+                    hijriMonth = state.calendarHijriMonth,
+                    markaz = state.markaz,
+                    nowMillis = System.currentTimeMillis()
+                )
+            }
+            _uiState.update { it.copy(hijriMonthCalendar = calendar) }
+        }
+    }
+
+    fun shiftCalendarMonth(deltaMonths: Int) {
+        _uiState.update { cur ->
+            val totalMonths = cur.calendarHijriYear * 12 + (cur.calendarHijriMonth - 1) + deltaMonths
+            val newYear = (totalMonths / 12).coerceIn(1435, 1465)
+            val newMonth = (totalMonths % 12 + 12) % 12 + 1
+            cur.copy(calendarHijriYear = newYear, calendarHijriMonth = newMonth)
+        }
+        recomputeHijriCalendar()
+    }
+
+    fun resetCalendarToCurrentMonth() {
+        val (hYear, hMonth) = FalakEphemerisEngine.currentEstimatedHijriYearMonth(System.currentTimeMillis())
+        _uiState.update { it.copy(calendarHijriYear = hYear, calendarHijriMonth = hMonth) }
+        recomputeHijriCalendar()
     }
 
     private fun recomputeLunarPhase() {
@@ -186,6 +266,18 @@ class HilalViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setMarkazSheetOpen(open: Boolean) {
         _uiState.update { it.copy(isMarkazSheetOpen = open, gpsStatusMessage = null) }
+    }
+
+    fun openExportSheet(scope: ReportScope = ReportScope.COMPLETE) {
+        _uiState.update { it.copy(isExportSheetOpen = true, exportScope = scope) }
+    }
+
+    fun closeExportSheet() {
+        _uiState.update { it.copy(isExportSheetOpen = false) }
+    }
+
+    fun setExportScope(scope: ReportScope) {
+        _uiState.update { it.copy(exportScope = scope) }
     }
 
     fun selectPresetMarkaz(markaz: MarkazLocation) {

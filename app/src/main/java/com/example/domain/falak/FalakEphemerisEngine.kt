@@ -42,7 +42,7 @@ object FalakEphemerisEngine {
     private const val BASE_HIJRI_MONTH = 1
     private const val BASE_LUNATION_K = 303
 
-    private data class SunPosition(
+    internal data class SunPosition(
         val raDeg: Double,
         val decDeg: Double,
         val distanceAu: Double,
@@ -50,7 +50,7 @@ object FalakEphemerisEngine {
         val equationOfTimeMinutes: Double
     )
 
-    private data class MoonPosition(
+    internal data class MoonPosition(
         val raDeg: Double,
         val decDeg: Double,
         val distanceKm: Double,
@@ -81,7 +81,7 @@ object FalakEphemerisEngine {
         return r
     }
 
-    private fun computeSunPosition(jd: Double): SunPosition {
+    internal fun computeSunPosition(jd: Double): SunPosition {
         val t = (jd - 2451545.0) / 36525.0
         val l0 = normalizeDeg(280.46646 + 36000.76983 * t + 0.0003032 * t * t)
         val m = normalizeDeg(357.52911 + 35999.05029 * t - 0.0001537 * t * t)
@@ -130,7 +130,7 @@ object FalakEphemerisEngine {
         )
     }
 
-    private fun computeMoonPosition(jd: Double): MoonPosition {
+    internal fun computeMoonPosition(jd: Double): MoonPosition {
         val t = (jd - 2451545.0) / 36525.0
         val lPrime = normalizeDeg(
             218.3164477 + 481267.88123421 * t - 0.0015786 * t * t +
@@ -259,7 +259,7 @@ object FalakEphemerisEngine {
         )
     }
 
-    private fun atmosphericRefractionDeg(apparentAltDeg: Double): Double {
+    internal fun atmosphericRefractionDeg(apparentAltDeg: Double): Double {
         if (apparentAltDeg < -3.0) return 0.0
         val h = apparentAltDeg.coerceAtLeast(-1.0)
         // Bennett's formula (arcminutes -> degrees)
@@ -267,7 +267,7 @@ object FalakEphemerisEngine {
         return (rArcMin / 60.0).coerceAtLeast(0.0)
     }
 
-    private fun toHorizontalTopocentric(
+    internal fun toHorizontalTopocentric(
         jd: Double,
         raDeg: Double,
         decDeg: Double,
@@ -308,7 +308,7 @@ object FalakEphemerisEngine {
     /**
      * Exact New Moon (Ijtima') JD for lunation k using bisection on Moon-Sun ecliptic longitude difference.
      */
-    private fun findIjtimaJdForLunation(k: Int): Double {
+    internal fun findIjtimaJdForLunation(k: Int): Double {
         val tApprox = k / 1236.85
         var jdApprox = NEW_MOON_EPOCH_JD + SYNODIC_MONTH_DAYS * k +
             0.0001337 * tApprox * tApprox
@@ -341,7 +341,7 @@ object FalakEphemerisEngine {
      * Find Sunset (Ghurub) JD on the local calendar date containing [approxLocalNoonJd].
      * Standard Sunset criteria: Sun center apparent altitude = -0.8333 deg - dip.
      */
-    private fun findSunsetJd(
+    internal fun findSunsetJd(
         localYear: Int,
         localMonth: Int,
         localDay: Int,

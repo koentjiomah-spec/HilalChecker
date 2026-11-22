@@ -31,12 +31,14 @@ import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Height
 import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -71,6 +73,7 @@ import com.example.domain.falak.VerdictStatus
 import com.example.ui.HilalUiState
 import com.example.ui.components.FalakMetricTile
 import com.example.ui.components.LunarPhaseVisualizationCard
+import com.example.ui.components.MabimsMathematicalModelCard
 import com.example.ui.components.MarkazLocationBar
 import com.example.ui.components.VerdictBadge
 import com.example.ui.theme.JetBrainsMonoFamily
@@ -85,6 +88,7 @@ fun HisabScreen(
     onOpenMarkazSheet: () -> Unit,
     onOpenSimulation: () -> Unit,
     onLunarDayOffsetChange: (Int) -> Unit = {},
+    onExportReport: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val result = state.hilalResult
@@ -126,6 +130,12 @@ fun HisabScreen(
                 EphemerisMetricsGrid(result = result)
             }
 
+            if (state.mabimsPrediction != null) {
+                item {
+                    MabimsMathematicalModelCard(prediction = state.mabimsPrediction)
+                }
+            }
+
             if (state.lunarPhaseData != null) {
                 item {
                     LunarPhaseVisualizationCard(
@@ -142,6 +152,24 @@ fun HisabScreen(
                     expanded = showAdvancedData,
                     onToggle = { showAdvancedData = !showAdvancedData }
                 )
+            }
+
+            item {
+                FilledTonalButton(
+                    onClick = onExportReport,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .minimumInteractiveComponentSize()
+                        .testTag("hisab_export_report_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PictureAsPdf,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ekspor Laporan Prediksi Hilal & Istiwak (PDF / Teks)")
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.Brightness3
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -29,11 +30,15 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -48,12 +53,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.R
+import com.example.domain.falak.ReportScope
+import com.example.ui.components.ExportReportBottomSheet
 import com.example.ui.components.MarkazSelectorBottomSheet
 import com.example.ui.screens.HisabScreen
 import com.example.ui.screens.IstiwakScreen
 import com.example.ui.screens.KompasScreen
 import com.example.ui.screens.SimulasiUfukScreen
 import com.example.ui.theme.HilalCheckerTheme
+import kotlinx.coroutines.launch
 
 const val ROUTE_HISAB = "hisab"
 const val ROUTE_SIMULASI = "simulasi"
@@ -106,6 +114,8 @@ fun HilalCheckerApp(viewModel: HilalViewModel) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: ROUTE_HISAB
+    val snackbarHostState = remember { SnackbarHostState() }
+    val appScope = rememberCoroutineScope()
 
     fun navigateTo(route: String) {
         navController.navigate(route) {
@@ -125,6 +135,7 @@ fun HilalCheckerApp(viewModel: HilalViewModel) {
                 modifier = Modifier.fillMaxSize(),
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = MaterialTheme.colorScheme.background,
+                snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                 topBar = {
                     CenterAlignedTopAppBar(
                         title = {
@@ -135,6 +146,25 @@ fun HilalCheckerApp(viewModel: HilalViewModel) {
                             )
                         },
                         actions = {
+                            IconButton(
+                                onClick = {
+                                    val defaultScope = when (currentRoute) {
+                                        ROUTE_ISTIWAK -> ReportScope.ISTIWAK_ONLY
+                                        ROUTE_HISAB, ROUTE_SIMULASI -> ReportScope.HILAL_ONLY
+                                        else -> ReportScope.COMPLETE
+                                    }
+                                    viewModel.openExportSheet(defaultScope)
+                                },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .testTag("top_export_report_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.PictureAsPdf,
+                                    contentDescription = stringResource(id = R.string.cd_export_report),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             IconButton(
                                 onClick = { viewModel.toggleTheme() },
                                 modifier = Modifier
@@ -226,7 +256,8 @@ fun HilalCheckerApp(viewModel: HilalViewModel) {
                                     onSelectCriteria = viewModel::selectCriteria,
                                     onOpenMarkazSheet = { viewModel.setMarkazSheetOpen(true) },
                                     onOpenSimulation = { navigateTo(ROUTE_SIMULASI) },
-                                    onLunarDayOffsetChange = viewModel::setLunarDayOffset
+                                    onLunarDayOffsetChange = viewModel::setLunarDayOffset,
+                                    onExportReport = { viewModel.openExportSheet(ReportScope.COMPLETE) }
                                 )
                             }
                             composable(ROUTE_SIMULASI) {
@@ -251,7 +282,14 @@ fun HilalCheckerApp(viewModel: HilalViewModel) {
                             composable(ROUTE_ISTIWAK) {
                                 IstiwakScreen(
                                     state = state,
-                                    onOpenMarkazSheet = { viewModel.setMarkazSheetOpen(true) }
+                                    onOpenMarkazSheet = { viewModel.setMarkazSheetOpen(true) },
+                                    onShiftIstiwakDay = viewModel::shiftIstiwakDay,
+                                    onResetIstiwakToday = viewModel::resetIstiwakDayToToday,
+                                    onRefreshGpsDirect = { viewModel.fetchGpsLocation(closeSheetOnSuccess = false) },
+                                    onPermissionDenied = viewModel::setGpsStatusMessage,
+                                    onExportReport = { viewModel.openExportSheet(ReportScope.COMPLETE) },
+                                    onShiftCalendarMonth = viewModel::shiftCalendarMonth,
+                                    onResetCalendarMonth = viewModel::resetCalendarToCurrentMonth
                                 )
                             }
                         }
@@ -269,6 +307,20 @@ fun HilalCheckerApp(viewModel: HilalViewModel) {
                     onFetchGps = viewModel::fetchGpsLocation,
                     onPermissionDenied = viewModel::setGpsStatusMessage,
                     onSaveManual = viewModel::saveManualCoordinates
+                )
+            }
+
+            if (state.isExportSheetOpen) {
+                ExportReportBottomSheet(
+                    state = state,
+                    scope = state.exportScope,
+                    onSelectScope = viewModel::setExportScope,
+                    onDismiss = { viewModel.closeExportSheet() },
+                    onShowMessage = { msg ->
+                        appScope.launch {
+                            snackbarHostState.showSnackbar(msg)
+                        }
+                    }
                 )
             }
         }

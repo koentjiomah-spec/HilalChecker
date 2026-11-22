@@ -7,4 +7,8 @@
     <string name="tab_ufuk">Simulasi</string>
     <string name="tab_kompas">Kompas</string>
     <string name="tab_istiwak">Istiwak</string>
+    <string name="export_report_title">Ekspor Laporan Falak</string>
+    <string name="cd_export_report">Ekspor laporan prediksi hilal dan waktu istiwak</string>
+    <string name="widget_hijri_description">Kalender Hijriah dengan tanggal penting bulan ini dan jadwal sholat mendatang</string>
+    <string name="cd_refresh_widget">Perbarui data kalender Hijriah dan jadwal sholat</string>
 </resources>
