@@ -15,6 +15,7 @@ import com.example.domain.falak.FalakEphemerisEngine
 import com.example.domain.falak.HijriCalendarEngine
 import com.example.domain.falak.HijriMonthCalendar
 import com.example.domain.falak.HilalResult
+import com.example.domain.falak.HisabMethodCategory
 import com.example.domain.falak.IstiwakAndPrayerResult
 import com.example.domain.falak.LunarPhaseData
 import com.example.domain.falak.MabimsHilalModel
@@ -22,6 +23,7 @@ import com.example.domain.falak.MabimsPrediction
 import com.example.domain.falak.MarkazLocation
 import com.example.domain.falak.ReportScope
 import com.example.domain.falak.RukyatCriteria
+import com.example.domain.falak.TimezonePreferenceMode
 import com.example.domain.falak.TrueNoonIstiwakResult
 import com.example.domain.falak.WaktuIstiwakCalculator
 import com.example.widget.HijriCalendarAppWidgetProvider
@@ -74,7 +76,11 @@ data class HilalUiState(
     val isMarkazSheetOpen: Boolean = false,
     val isExportSheetOpen: Boolean = false,
     val exportScope: ReportScope = ReportScope.COMPLETE,
-    val isSavingObservation: Boolean = false
+    val isSavingObservation: Boolean = false,
+    val baseMarkaz: MarkazLocation = FalakCatalog.markazStations.first(),
+    val lastRukyatCriteria: RukyatCriteria = RukyatCriteria.MABIMS_BARU,
+    val timezoneMode: TimezonePreferenceMode = TimezonePreferenceMode.AUTO_MARKAZ,
+    val customTimezoneOffsetHours: Double = 7.0
 )
 
 class HilalViewModel(
@@ -134,7 +140,11 @@ class HilalViewModel(
                 _uiState.update {
                     it.copy(
                         markaz = prefs.markaz,
+                        baseMarkaz = prefs.baseMarkaz,
                         selectedCriteria = prefs.selectedCriteria,
+                        lastRukyatCriteria = prefs.lastRukyatCriteria,
+                        timezoneMode = prefs.timezoneMode,
+                        customTimezoneOffsetHours = prefs.customTimezoneOffsetHours,
                         isDarkTheme = prefs.isDarkTheme,
                         magneticDeclinationDeg = declination
                     )
@@ -308,6 +318,22 @@ class HilalViewModel(
 
     fun selectCriteria(criteria: RukyatCriteria) {
         viewModelScope.launch { prefsRepo.setCriteria(criteria) }
+    }
+
+    fun selectHisabMethodCategory(category: HisabMethodCategory) {
+        viewModelScope.launch { prefsRepo.setHisabMethodCategory(category) }
+    }
+
+    fun selectTimezoneMode(mode: TimezonePreferenceMode) {
+        viewModelScope.launch { prefsRepo.setTimezoneMode(mode) }
+    }
+
+    fun setCustomTimezoneOffset(offsetHours: Double) {
+        viewModelScope.launch { prefsRepo.setCustomTimezoneOffset(offsetHours) }
+    }
+
+    fun resetSettingsToDefaults() {
+        viewModelScope.launch { prefsRepo.resetFalakSettingsToDefaults() }
     }
 
     fun toggleTheme() {

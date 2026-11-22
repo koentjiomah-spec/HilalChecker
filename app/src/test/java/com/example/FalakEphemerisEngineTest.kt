@@ -1,16 +1,20 @@
 package com.example
 
+import com.example.data.FalakPreferencesRepository
 import com.example.domain.falak.FalakCatalog
 import com.example.domain.falak.FalakEphemerisEngine
 import com.example.domain.falak.FalakReportGenerator
 import com.example.domain.falak.FalakReportInput
 import com.example.domain.falak.HijriCalendarEngine
 import com.example.domain.falak.HijriEventType
+import com.example.domain.falak.HisabMethodCategory
 import com.example.domain.falak.MabimsHilalModel
 import com.example.domain.falak.ReportScope
 import com.example.domain.falak.RukyatCriteria
 import com.example.domain.falak.VerdictStatus
 import com.example.domain.falak.WaktuIstiwakCalculator
+import com.example.domain.falak.category
+import com.example.domain.falak.formatUtcOffsetLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -209,5 +213,23 @@ class FalakEphemerisEngineTest {
         assertTrue(dzulhijjahCal.keyEvents.any { it.hijriDay == 9 && it.title.contains("Arafah") })
         assertTrue(dzulhijjahCal.keyEvents.any { it.hijriDay == 10 && it.title.contains("Idul Adha") })
         assertTrue(dzulhijjahCal.keyEvents.any { it.hijriDay == 13 && it.title.contains("Tasyrik") })
+    }
+
+    @Test
+    fun settingsPreferencesHelpersWorkAccurately() {
+        assertEquals(HisabMethodCategory.WUJUDUL_HILAL, RukyatCriteria.WUJUDUL_HILAL.category())
+        assertEquals(HisabMethodCategory.RUKYATUL_HILAL, RukyatCriteria.MABIMS_BARU.category())
+        assertEquals(HisabMethodCategory.RUKYATUL_HILAL, RukyatCriteria.MABIMS_LAMA.category())
+        assertEquals(HisabMethodCategory.RUKYATUL_HILAL, RukyatCriteria.ODEH_GLOBAL.category())
+
+        assertEquals("UTC+07:00", formatUtcOffsetLabel(7.0))
+        assertEquals("UTC+05:30", formatUtcOffsetLabel(5.5))
+        assertEquals("UTC-04:00", formatUtcOffsetLabel(-4.0))
+        assertEquals("UTC+00:00", formatUtcOffsetLabel(0.0))
+
+        assertEquals(5.5, FalakPreferencesRepository.sanitizeHalfHourOffset(5.4), 0.001)
+        assertEquals(-12.0, FalakPreferencesRepository.sanitizeHalfHourOffset(-15.0), 0.001)
+        assertEquals(14.0, FalakPreferencesRepository.sanitizeHalfHourOffset(18.0), 0.001)
+        assertEquals(7.0, FalakPreferencesRepository.sanitizeHalfHourOffset(Double.NaN), 0.001)
     }
 }

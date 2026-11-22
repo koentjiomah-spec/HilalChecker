@@ -39,6 +39,87 @@ enum class RukyatCriteria(
     )
 }
 
+enum class HisabMethodCategory(
+    val title: String,
+    val subtitle: String
+) {
+    WUJUDUL_HILAL(
+        title = "Wujudul Hilal",
+        subtitle = "Hisab Hakiki — Ijtima' sebelum ghurub & tinggi hilal > 0°"
+    ),
+    RUKYATUL_HILAL(
+        title = "Rukyatul Hilal",
+        subtitle = "Imkanur Rukyat — Berbasis syarat tinggi & elongasi (MABIMS / Odeh)"
+    )
+}
+
+fun RukyatCriteria.category(): HisabMethodCategory {
+    return if (this == RukyatCriteria.WUJUDUL_HILAL) {
+        HisabMethodCategory.WUJUDUL_HILAL
+    } else {
+        HisabMethodCategory.RUKYATUL_HILAL
+    }
+}
+
+enum class TimezonePreferenceMode(
+    val title: String,
+    val subtitle: String,
+    val fixedOffsetHours: Double?,
+    val fixedLabel: String?
+) {
+    AUTO_MARKAZ(
+        title = "Otomatis (Sesuai Markaz)",
+        subtitle = "Mengikuti zona waktu wilayah stasiun markaz atau GPS",
+        fixedOffsetHours = null,
+        fixedLabel = null
+    ),
+    WIB(
+        title = "WIB (UTC+07:00)",
+        subtitle = "Waktu Indonesia Barat • Meridian Standar 105° BT",
+        fixedOffsetHours = 7.0,
+        fixedLabel = "WIB"
+    ),
+    WITA(
+        title = "WITA (UTC+08:00)",
+        subtitle = "Waktu Indonesia Tengah • Meridian Standar 120° BT",
+        fixedOffsetHours = 8.0,
+        fixedLabel = "WITA"
+    ),
+    WIT(
+        title = "WIT (UTC+09:00)",
+        subtitle = "Waktu Indonesia Timur • Meridian Standar 135° BT",
+        fixedOffsetHours = 9.0,
+        fixedLabel = "WIT"
+    ),
+    AST_MAKKAH(
+        title = "AST / Makkah (UTC+03:00)",
+        subtitle = "Waktu Standar Arab Saudi • Meridian 45° BT",
+        fixedOffsetHours = 3.0,
+        fixedLabel = "AST"
+    ),
+    UTC(
+        title = "UTC (UTC+00:00)",
+        subtitle = "Coordinated Universal Time • Meridian Greenwich 0°",
+        fixedOffsetHours = 0.0,
+        fixedLabel = "UTC"
+    ),
+    CUSTOM(
+        title = "Zona Waktu Kustom",
+        subtitle = "Atur offset jam terhadap UTC secara manual (-12 hingga +14)",
+        fixedOffsetHours = null,
+        fixedLabel = null
+    )
+}
+
+fun formatUtcOffsetLabel(offsetHours: Double): String {
+    val totalMinutes = kotlin.math.round(offsetHours * 60.0).toInt()
+    val sign = if (totalMinutes >= 0) "+" else "-"
+    val absMinutes = kotlin.math.abs(totalMinutes)
+    val h = absMinutes / 60
+    val m = absMinutes % 60
+    return java.lang.String.format(java.util.Locale.US, "UTC%s%02d:%02d", sign, h, m)
+}
+
 enum class VerdictStatus {
     MEMENUHI,
     MARGINAL,

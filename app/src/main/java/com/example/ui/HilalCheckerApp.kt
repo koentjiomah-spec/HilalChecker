@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.Brightness3
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Brightness3
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -87,6 +89,7 @@ import com.example.ui.components.MarkazSelectorBottomSheet
 import com.example.ui.screens.HisabScreen
 import com.example.ui.screens.IstiwakScreen
 import com.example.ui.screens.KompasScreen
+import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SimulasiUfukScreen
 import com.example.ui.theme.HilalCheckerTheme
 import com.google.firebase.Firebase
@@ -103,6 +106,7 @@ const val ROUTE_HISAB = "hisab"
 const val ROUTE_SIMULASI = "simulasi"
 const val ROUTE_KOMPAS = "kompas"
 const val ROUTE_ISTIWAK = "istiwak"
+const val ROUTE_SETTINGS = "settings"
 
 private data class NavDestinationItem(
     val route: String,
@@ -140,6 +144,13 @@ private val navItems = listOf(
         selectedIcon = Icons.Filled.Schedule,
         unselectedIcon = Icons.Outlined.Schedule,
         testTag = "nav_tab_istiwak"
+    ),
+    NavDestinationItem(
+        route = ROUTE_SETTINGS,
+        labelRes = R.string.tab_settings,
+        selectedIcon = Icons.Filled.Settings,
+        unselectedIcon = Icons.Outlined.Settings,
+        testTag = "nav_tab_settings"
     )
 )
 
@@ -431,6 +442,20 @@ fun HilalCheckerApp(
                                     onExportReport = { viewModel.openExportSheet(ReportScope.COMPLETE) },
                                     onShiftCalendarMonth = viewModel::shiftCalendarMonth,
                                     onResetCalendarMonth = viewModel::resetCalendarToCurrentMonth
+                                )
+                            }
+                            composable(ROUTE_SETTINGS) {
+                                SettingsScreen(
+                                    state = state,
+                                    onSelectHisabMethodCategory = viewModel::selectHisabMethodCategory,
+                                    onSelectCriteria = viewModel::selectCriteria,
+                                    onSelectTimezoneMode = viewModel::selectTimezoneMode,
+                                    onCustomTimezoneOffsetChange = viewModel::setCustomTimezoneOffset,
+                                    onToggleDarkTheme = viewModel::toggleTheme,
+                                    onResetDefaults = {
+                                        viewModel.resetSettingsToDefaults()
+                                        showFeedback("Setelan dikembalikan ke default (Neo-MABIMS & Otomatis Markaz).")
+                                    }
                                 )
                             }
                         }
